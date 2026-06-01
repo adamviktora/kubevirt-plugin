@@ -52,6 +52,7 @@ const CloneTemplateModalBody: FC<CloneTemplateModalBodyProps> = ({
       )}
       <FormGroup isRequired label={t('Source template')}>
         <SelectTemplate
+          dataTestId="source-template"
           isDisabled={!!initialTemplate}
           namespace={sourceProject}
           onTemplateSelect={onTemplateSelected}
