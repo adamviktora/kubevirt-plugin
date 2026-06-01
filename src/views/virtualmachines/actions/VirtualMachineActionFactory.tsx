@@ -20,12 +20,23 @@ import RunStrategyModal from '@kubevirt-utils/components/RunStrategyModal/RunStr
 import { updateRunStrategy } from '@kubevirt-utils/components/RunStrategyModal/utils';
 import SaveAsTemplateModal from '@kubevirt-utils/components/SaveAsTemplateModal/SaveAsTemplateModal';
 import SnapshotModal from '@kubevirt-utils/components/SnapshotModal/SnapshotModal';
+import { logVMConsoleOpened } from '@kubevirt-utils/extensions/telemetry/dashboard';
+import { TELEMETRY_CONSOLE_SESSION_TYPE } from '@kubevirt-utils/extensions/telemetry/utils/property-constants';
 import {
+  MigPlanModel,
   MultiNamespaceVirtualMachineStorageMigrationPlanModel,
   VirtualMachineInstanceSubresourcesModel,
   VirtualMachineSubresourcesModel,
 } from '@kubevirt-utils/models';
-import { MultiNamespaceVirtualMachineStorageMigrationPlan } from '@kubevirt-utils/resources/migrations/constants';
+import {
+  getStorageMigrationBackend,
+  getStorageMigrationPlanModelForKind,
+} from '@kubevirt-utils/resources/migrations/backends';
+import {
+  type StorageMigrationAPI,
+  MultiNamespaceVirtualMachineStorageMigrationPlan,
+  STORAGE_MIGRATION_API,
+} from '@kubevirt-utils/resources/migrations/constants';
 import { asAccessReview, getName, getNamespace } from '@kubevirt-utils/resources/shared';
 import { getVMSSHSecretName } from '@kubevirt-utils/resources/vm';
 import {
@@ -104,12 +115,19 @@ export const createVirtualMachineActionFactory = (t: TFunction) => ({
     vm: V1VirtualMachine,
     storageMigrationPlan: MultiNamespaceVirtualMachineStorageMigrationPlan,
   ): ActionDropdownItemType => {
+    const cancelModel = getStorageMigrationPlanModelForKind(storageMigrationPlan?.kind);
+
+    const cancelNamespace =
+      storageMigrationPlan?.kind === MigPlanModel.kind
+        ? getNamespace(storageMigrationPlan)
+        : getNamespace(vm);
+
     return {
       accessReview: {
-        cluster: getCluster(vm),
-        group: MultiNamespaceVirtualMachineStorageMigrationPlanModel.apiGroup,
-        namespace: getNamespace(vm),
-        resource: MultiNamespaceVirtualMachineStorageMigrationPlanModel.plural,
+        cluster: getCluster(storageMigrationPlan) ?? getCluster(vm),
+        group: cancelModel.apiGroup,
+        namespace: cancelNamespace,
+        resource: cancelModel.plural,
         verb: 'delete',
       },
       cta: () => cancelStorageMigrationPlan(vm, storageMigrationPlan),
@@ -273,18 +291,37 @@ export const createVirtualMachineActionFactory = (t: TFunction) => ({
   migrateStorage: (
     vm: V1VirtualMachine,
     createModal: (modal: ModalComponent) => void,
+    storageMigAPI: StorageMigrationAPI = STORAGE_MIGRATION_API.MULTI_NS,
   ): ActionDropdownItemType => {
+    const isLoading = storageMigAPI === STORAGE_MIGRATION_API.LOADING;
+    const isUnavailable = storageMigAPI === STORAGE_MIGRATION_API.NONE;
+    const backend = getStorageMigrationBackend(storageMigAPI);
+    const planModel = backend?.planModel ?? null;
+    const planNamespace = backend?.fixedPlanNamespace ?? getNamespace(vm);
+
+    const accessReviewModel = planModel ?? MultiNamespaceVirtualMachineStorageMigrationPlanModel;
+
+    const migrateStorageDisabledTooltip = () => {
+      if (isLoading) return t('Checking storage migration availability...');
+      if (isUnavailable) return t('Storage migration is not available on this cluster.');
+      return getNoPermissionTooltipContent(t);
+    };
+
     return {
       accessReview: {
         cluster: getCluster(vm),
-        group: MultiNamespaceVirtualMachineStorageMigrationPlanModel.apiGroup,
-        namespace: getNamespace(vm),
-        resource: MultiNamespaceVirtualMachineStorageMigrationPlanModel.plural,
+        group: accessReviewModel.apiGroup,
+        namespace: planModel ? planNamespace : getNamespace(vm),
+        resource: accessReviewModel.plural,
         verb: 'create',
       },
-      cta: () => createModal((props) => <VirtualMachineMigrateModal vms={[vm]} {...props} />),
+      cta: () =>
+        createModal((props) => (
+          <VirtualMachineMigrateModal storageMigAPI={storageMigAPI} vms={[vm]} {...props} />
+        )),
       description: t('Migrate VirtualMachine storage to a different StorageClass'),
-      disabledTooltip: getNoPermissionTooltipContent(t),
+      disabled: isLoading || isUnavailable || !planModel,
+      disabledTooltip: migrateStorageDisabledTooltip(),
       id: ACTIONS_ID.MIGRATE_STORAGE,
       label: t('Storage'),
     };
@@ -333,7 +370,10 @@ export const createVirtualMachineActionFactory = (t: TFunction) => ({
     const vmName = getName(vm);
 
     return {
-      cta: () => window.open(getConsoleStandaloneURL(vmNamespace, vmName, vmCluster)),
+      cta: () => {
+        logVMConsoleOpened(TELEMETRY_CONSOLE_SESSION_TYPE.VNC);
+        window.open(getConsoleStandaloneURL(vmNamespace, vmName, vmCluster));
+      },
       description: isRunning(vm)
         ? t('Open console in new tab')
         : t('The VirtualMachine is not running'),
