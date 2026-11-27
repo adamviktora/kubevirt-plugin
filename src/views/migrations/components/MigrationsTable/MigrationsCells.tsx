@@ -16,6 +16,7 @@ import {
   getMigrationTargetNode,
 } from '@kubevirt-utils/resources/vmim/selectors';
 import { vmimStatuses } from '@kubevirt-utils/resources/vmim/statuses';
+import { getStatusIcon } from '@kubevirt-utils/resources/vmim/statusIcon';
 import MulticlusterResourceLink from '@multicluster/components/MulticlusterResourceLink/MulticlusterResourceLink';
 import { getCluster } from '@multicluster/helpers/selectors';
 import useIsACMPage from '@multicluster/useIsACMPage';
@@ -25,7 +26,6 @@ import { Progress, ProgressMeasureLocation, Tooltip } from '@patternfly/react-co
 import MigrationPolicyTooltip from './components/MigrationPolicyTooltip/MigrationPolicyTooltip';
 import useMigrationProgress from './hooks/useMigrationProgress';
 import MigrationActionsDropdown from './MigrationActionsDropdown';
-import { getStatusIcon } from './utils/statuses';
 import { type MigrationTableDataLayout } from './utils/utils';
 
 type CellProps = {

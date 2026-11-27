@@ -31,6 +31,7 @@ type StatusIconPhase = keyof typeof iconMapper;
 const isStatusIconPhase = (phase: string): phase is StatusIconPhase =>
   Object.hasOwn(iconMapper, phase);
 
+/** Maps a VirtualMachineInstanceMigration phase to a status icon. */
 export const getStatusIcon = (phase: string): ComponentType => {
   if (isStatusIconPhase(phase)) {
     return iconMapper[phase];

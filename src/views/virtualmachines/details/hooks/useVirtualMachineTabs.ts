@@ -12,6 +12,7 @@ import useDiagnosticBadges from '../tabs/diagnostic/hooks/useDiagnosticBadges';
 import VirtualMachineDiagnosticTab from '../tabs/diagnostic/VirtualMachineDiagnosticTab';
 import VirtualMachinePageEventsTab from '../tabs/events/VirtualMachinePageEvents';
 import VirtualMachineMetricsTab from '../tabs/metrics/VirtualMachineMetricsTab';
+import VirtualMachineMigrationTab from '../tabs/migration/VirtualMachineMigrationTab';
 import VirtualMachinesOverviewTab from '../tabs/overview/VirtualMachinesOverviewTab';
 import SnapshotListPage from '../tabs/snapshots/SnapshotListPage';
 import VirtualMachineYAMLPage from '../tabs/yaml/VirtualMachineYAMLPage';
@@ -89,6 +90,10 @@ export const useVirtualMachineTabs = (vm: V1VirtualMachine): NavPageKubevirt[] =
           {
             component: SnapshotListPage,
             ...getTabHrefAndName(VirtualMachineDetailsTab.Snapshots, t),
+          },
+          {
+            component: VirtualMachineMigrationTab,
+            ...getTabHrefAndName(VirtualMachineDetailsTab.Migration, t),
           },
           {
             badges: diagnosticBadges,
